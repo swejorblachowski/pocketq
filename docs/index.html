@@ -4,139 +4,220 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PocketQ — a quantum classifier that fits in your pocket</title>
-<meta name="description" content="A variational quantum classifier running live in your browser. 8 trainable parameters, int8 quantized, no frameworks.">
+<meta name="description" content="A variational quantum classifier running live in your browser. 8 trainable parameters, int8 quantized, C firmware port, no frameworks.">
 <meta property="og:title" content="PocketQ — a quantum classifier that fits in your pocket">
-<meta property="og:description" content="The trained quantum model runs live on this page. 8 parameters, ~40 µs per prediction.">
+<meta property="og:description" content="The trained quantum model runs live on this page. 8 parameters, ~40 µs per prediction, runs on a microcontroller.">
 <meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230e1512'/><circle cx='16' cy='16' r='4' fill='%235fdca0'/><ellipse cx='16' cy='16' rx='11' ry='4.5' fill='none' stroke='%235fdca0' stroke-width='2' transform='rotate(-24 16 16)'/></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Caveat:wght@600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%23f2edde'/><circle cx='16' cy='16' r='3.5' fill='none' stroke='%23262218' stroke-width='2'/><ellipse cx='16' cy='16' rx='11' ry='5' fill='none' stroke='%23262218' stroke-width='2' transform='rotate(-24 16 16)'/></svg>">
 <script src="pocketq-model.js"></script>
 <style>
 :root {
-  --bg: #0c1310;
-  --surface: #101915;
-  --surface-2: #14201b;
-  --border: #1d3329;
-  --divider: #173026;
-  --text: #e6efe9;
-  --text-muted: #93a89c;
-  --text-faint: #5f7568;
-  --accent: #5fdca0;
-  --accent-dim: #2e7d5b;
-  --amber: #e8b45c;
-  --font-body: 'Inter', 'Helvetica Neue', sans-serif;
-  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
-  --radius: 12px;
-  --content: 1080px;
-  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --paper: #f2edde;
+  --card: #faf7ec;
+  --ink: #262218;
+  --ink-soft: #5d5647;
+  --ink-faint: #948b74;
+  --grid: rgba(72, 108, 158, 0.12);
+  --rule: rgba(38, 34, 24, 0.16);
+  --green: #2e7d4f;
+  --amber: #a86e0f;
+  --red: #b3402a;
+  --tape: rgba(244, 238, 214, 0.75);
+  --serif: 'Instrument Serif', 'Times New Roman', serif;
+  --hand: 'Caveat', cursive;
+  --mono: 'JetBrains Mono', 'Courier New', monospace;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; scroll-behavior: smooth; }
 body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-body);
-  line-height: 1.65;
-  font-size: 16px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  line-height: 1.6;
+  font-size: 17px;
   min-height: 100dvh;
 }
-a { color: var(--accent); text-decoration: none; transition: color var(--ease); }
-a:hover { color: #8ff0c0; }
+a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--ink-faint); text-underline-offset: 3px; }
+a:hover { text-decoration-color: var(--red); }
 img, svg, canvas { display: block; max-width: 100%; }
-h1, h2, h3 { text-wrap: balance; line-height: 1.15; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.08; font-weight: 400; }
 p { text-wrap: pretty; }
+.mono { font-family: var(--mono); }
 
+/* graph paper backdrop */
 .backdrop {
   position: fixed; inset: 0; pointer-events: none; z-index: 0;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(95,220,160,0.07), transparent 60%),
-    repeating-linear-gradient(0deg, transparent, transparent 47px, rgba(95,220,160,0.028) 47px, rgba(95,220,160,0.028) 48px),
-    repeating-linear-gradient(90deg, transparent, transparent 47px, rgba(95,220,160,0.028) 47px, rgba(95,220,160,0.028) 48px);
+    repeating-linear-gradient(0deg, transparent, transparent 27px, var(--grid) 27px, var(--grid) 28px),
+    repeating-linear-gradient(90deg, transparent, transparent 27px, var(--grid) 27px, var(--grid) 28px);
 }
-.wrap { max-width: var(--content); margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 0 22px; position: relative; z-index: 1; }
 
-header { border-bottom: 1px solid var(--divider); position: sticky; top: 0; z-index: 50; background: color-mix(in oklab, var(--bg) 88%, transparent); backdrop-filter: blur(12px); }
-nav { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; }
-.logo { font-family: var(--font-mono); font-weight: 700; font-size: 17px; color: var(--text); display: flex; align-items: center; gap: 10px; }
-.nav-links { display: flex; gap: 26px; font-size: 14px; }
-.nav-links a { color: var(--text-muted); font-weight: 500; }
-.nav-links a:hover { color: var(--accent); }
+/* ---------- header ---------- */
+header {
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in oklab, var(--paper) 90%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1.5px solid var(--ink);
+}
+nav { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; }
+.logo { display: flex; align-items: baseline; gap: 12px; font-size: 24px; }
+.logo em { font-style: italic; }
+.logo .vol { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: 0.08em; }
+.nav-links { display: flex; gap: 26px; font-family: var(--mono); font-size: 13px; }
+.nav-links a { text-decoration: none; color: var(--ink-soft); }
+.nav-links a:hover { color: var(--red); }
 
-.hero { padding: 88px 0 60px; }
-.kicker { font-family: var(--font-mono); font-size: 13px; color: var(--accent); letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 22px; }
-.hero h1 { font-size: clamp(2.6rem, 1.6rem + 4.5vw, 4.6rem); font-weight: 700; letter-spacing: -0.02em; max-width: 15ch; }
-.hero h1 em { font-style: normal; color: var(--accent); }
-.hero p.lede { font-size: clamp(1.05rem, 0.95rem + 0.4vw, 1.25rem); color: var(--text-muted); max-width: 58ch; margin-top: 26px; }
-.hero-badges { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
-.badge { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-muted); border: 1px solid var(--border); background: var(--surface); padding: 7px 14px; border-radius: 999px; }
-.badge b { color: var(--text); font-weight: 600; }
+/* ---------- hero ---------- */
+.hero { padding: 76px 0 40px; position: relative; }
+.kicker { font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--red); margin-bottom: 22px; }
+.hero h1 { font-size: clamp(3rem, 8.4vw, 6.4rem); letter-spacing: -0.015em; max-width: 12ch; }
+.hero h1 .hl { position: relative; white-space: nowrap; }
+.hero h1 .hl svg { position: absolute; left: -2%; bottom: 0.04em; width: 104%; height: 0.32em; }
+.lede { font-size: 21px; max-width: 54ch; margin-top: 26px; color: var(--ink-soft); }
+.margin-note {
+  position: absolute; right: 8px; top: 96px; transform: rotate(2deg);
+  font-family: var(--hand); font-size: 21px; color: var(--red); max-width: 190px; line-height: 1.25;
+}
+.badges { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.badge {
+  font-family: var(--mono); font-size: 12.5px; padding: 7px 13px;
+  border: 1.5px solid var(--ink); border-radius: 3px; background: var(--card);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+.badge b { font-weight: 700; }
 
-/* ---------- the demo ---------- */
-.demo { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px; margin-top: 56px; }
-.demo-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 22px; }
-.demo-head h2 { font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
-.demo-head h2 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-.toggle { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text-muted); cursor: pointer; user-select: none; }
-.toggle input { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
-.demo-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 26px; }
-@media (max-width: 900px) { .demo-grid { grid-template-columns: 1fr; } }
+/* ---------- marquee ---------- */
+.marquee {
+  border-top: 1.5px solid var(--ink); border-bottom: 1.5px solid var(--ink);
+  overflow: hidden; white-space: nowrap; margin-top: 54px; padding: 10px 0;
+  font-family: var(--mono); font-size: 13px; color: var(--ink-soft); background: var(--card);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+.marquee span { display: inline-block; animation: slide 26s linear infinite; }
+@keyframes slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
+/* ---------- demo card (the notebook page) ---------- */
+section { padding: 66px 0; }
+.sec-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 34px; }
+.sec-num { font-family: var(--hand); font-size: 26px; color: var(--red); }
+h2 { font-size: clamp(2rem, 4vw, 2.9rem); }
+
+.notebook {
+  position: relative; background: var(--card);
+  border: 1.5px solid var(--ink); box-shadow: 4px 4px 0 rgba(38,34,24,0.22);
+  padding: 26px 26px 22px; transform: rotate(-0.35deg);
+}
+.notebook::before, .notebook::after {
+  content: ""; position: absolute; width: 86px; height: 24px; background: var(--tape);
+  top: -12px; box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  border-left: 1px dashed rgba(38,34,24,0.2); border-right: 1px dashed rgba(38,34,24,0.2);
+}
+.notebook::before { left: 34px; transform: rotate(-3deg); }
+.notebook::after { right: 34px; transform: rotate(2.5deg); }
+.exp-label {
+  display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px;
+  border-bottom: 1.5px dashed var(--rule); padding-bottom: 12px; margin-bottom: 18px;
+}
+.exp-label h3 { font-size: 24px; }
+.exp-label .hand { font-family: var(--hand); font-size: 19px; color: var(--red); }
+
+.demo-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 26px; }
 .map-box { position: relative; }
-#map { width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--divider); cursor: crosshair; touch-action: manipulation; }
-.map-caption { font-size: 12.5px; color: var(--text-faint); margin-top: 10px; font-family: var(--font-mono); }
+#map { width: 100%; height: auto; border: 1.5px solid var(--ink); background: #faf7ec; cursor: crosshair; }
+.map-caption { font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); margin-top: 8px; line-height: 1.5; }
 
-.controls { display: flex; flex-direction: column; gap: 20px; }
-.ctl label { display: flex; justify-content: space-between; font-size: 14px; color: var(--text-muted); margin-bottom: 8px; }
-.ctl label output { font-family: var(--font-mono); color: var(--text); font-weight: 500; }
-.ctl input[type=range] { width: 100%; accent-color: var(--accent); height: 22px; cursor: pointer; }
-.readout { background: var(--bg); border: 1px solid var(--divider); border-radius: 10px; padding: 18px; }
-.readout .pred { font-family: var(--font-mono); font-size: 15px; display: flex; justify-content: space-between; margin-bottom: 12px; }
-.readout .pred .name { color: var(--accent); font-weight: 700; }
-.zmeter { height: 10px; background: var(--surface-2); border-radius: 999px; position: relative; overflow: hidden; margin-bottom: 6px; }
-.zmeter .mid { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--border); }
-.zmeter .fill { position: absolute; top: 0; bottom: 0; background: var(--accent); border-radius: 999px; transition: all 0.25s var(--ease); }
-.zlabel { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11.5px; color: var(--text-faint); margin-bottom: 14px; }
-.state-bars { display: flex; flex-direction: column; gap: 7px; }
-.sbar { display: grid; grid-template-columns: 38px 1fr 46px; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
-.sbar .track { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
-.sbar .fill { height: 100%; background: var(--accent-dim); border-radius: 999px; transition: width 0.25s var(--ease); }
-.sbar .val { text-align: right; color: var(--text-faint); }
-.params { font-family: var(--font-mono); font-size: 12px; color: var(--text-faint); line-height: 1.7; }
-.params b { color: var(--amber); font-weight: 500; }
+.controls { display: flex; flex-direction: column; gap: 16px; }
+.ctl label {
+  display: flex; justify-content: space-between; font-family: var(--mono);
+  font-size: 12.5px; color: var(--ink-soft); margin-bottom: 7px;
+}
+.ctl output { color: var(--ink); font-weight: 500; }
+input[type="range"] { width: 100%; accent-color: var(--red); height: 20px; }
+.toggle { font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft); display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.toggle input { accent-color: var(--red); }
 
-section { padding: 72px 0; }
-.sec-head { display: flex; align-items: baseline; gap: 18px; margin-bottom: 40px; }
-.sec-num { font-family: var(--font-mono); color: var(--accent); font-size: 14px; }
-h2 { font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2.1rem); font-weight: 700; letter-spacing: -0.01em; }
+.readout { border: 1.5px dashed var(--ink); padding: 14px 16px; margin-top: 4px; background: var(--paper); }
+.pred { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--mono); font-size: 13px; color: var(--ink-faint); }
+.pred .name { font-family: var(--serif); font-style: italic; font-size: 26px; color: var(--ink); }
+.zmeter { position: relative; height: 10px; background: var(--card); border: 1px solid var(--ink); margin: 12px 0 6px; }
+.zmeter .mid { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1.5px; background: var(--ink-faint); }
+.zmeter .fill { position: absolute; top: 1px; bottom: 1px; background: var(--red); transition: all 0.15s ease; }
+.zlabel { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
+.state-bars { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.sbar { display: grid; grid-template-columns: 36px 1fr 42px; align-items: center; gap: 9px; font-family: var(--mono); font-size: 11.5px; color: var(--ink-soft); }
+.sbar .track { height: 9px; background: var(--card); border: 1px solid var(--rule); }
+.sbar .fill { height: 100%; background: var(--ink-soft); transition: width 0.2s; }
+.sbar .val { text-align: right; color: var(--ink-faint); }
+.params { font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); line-height: 1.7; margin-top: 14px; }
+.params b { color: var(--red); font-weight: 500; }
 
-.pipeline { display: flex; align-items: stretch; gap: 0; margin-top: 10px; }
-.pipe-step { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 20px; }
-.pipe-step .tag { font-family: var(--font-mono); font-size: 11px; color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px; }
-.pipe-step h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
-.pipe-step p { font-size: 14px; color: var(--text-muted); }
-.pipe-arrow { display: flex; align-items: center; padding: 0 8px; color: var(--accent-dim); flex: none; }
+/* ---------- index cards (pipeline) ---------- */
+.pipeline { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+.card-note {
+  background: var(--card); border: 1.5px solid var(--ink); padding: 20px 18px;
+  box-shadow: 3px 3px 0 rgba(38,34,24,0.2);
+}
+.card-note:nth-child(1) { transform: rotate(-0.8deg); }
+.card-note:nth-child(2) { transform: rotate(0.6deg); }
+.card-note:nth-child(3) { transform: rotate(-0.5deg); }
+.card-note:nth-child(4) { transform: rotate(0.9deg); }
+.card-note .tag { font-family: var(--mono); font-size: 10.5px; color: var(--red); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 9px; }
+.card-note h3 { font-size: 19px; margin-bottom: 7px; }
+.card-note p { font-size: 14.5px; color: var(--ink-soft); line-height: 1.5; }
 
-.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
-.stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 26px 24px; }
-.stat .v { font-family: var(--font-mono); font-size: clamp(1.7rem, 1.2rem + 1.5vw, 2.4rem); font-weight: 700; color: var(--accent); letter-spacing: -0.02em; }
-.stat .l { font-size: 13.5px; color: var(--text-muted); margin-top: 8px; line-height: 1.45; }
+/* ---------- stats ---------- */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
+.stat .v { font-size: clamp(2.6rem, 5vw, 4rem); line-height: 1; }
+.stat .v small { font-size: 0.5em; color: var(--ink-soft); }
+.stat .l { font-size: 15px; color: var(--ink-soft); margin-top: 8px; border-top: 1.5px solid var(--ink); padding-top: 8px; }
+.stat .hand { font-family: var(--hand); color: var(--red); font-size: 17px; display: block; margin-top: 6px; }
 
-footer { border-top: 1px solid var(--divider); padding: 44px 0 60px; margin-top: 40px; }
+/* ---------- firmware section ---------- */
+.firmware-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 30px; align-items: start; }
+.term {
+  background: var(--ink); color: #e8e2cf; font-family: var(--mono); font-size: 12px;
+  line-height: 1.75; padding: 20px 22px; border: 1.5px solid var(--ink);
+  box-shadow: 4px 4px 0 rgba(38,34,24,0.22); overflow-x: auto;
+}
+.term .dim { color: #948b74; }
+.term .ok { color: #9fd39a; }
+.firmware-note { font-size: 19px; color: var(--ink-soft); max-width: 46ch; }
+.firmware-note b { font-family: var(--mono); font-size: 0.82em; background: rgba(249,242,107,0.55); padding: 0 4px; }
+.hand-list { font-family: var(--hand); font-size: 20px; color: var(--ink); margin-top: 18px; line-height: 1.5; }
+
+/* ---------- bench table ---------- */
+table { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 13.5px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1.5px dashed var(--rule); }
+th:not(:first-child), td:not(:first-child) { white-space: nowrap; text-align: right; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--ink-faint); font-weight: 500; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.1em; }
+td.win { color: var(--green); font-weight: 700; }
+.bench-note { font-family: var(--hand); font-size: 19px; color: var(--red); margin-top: 14px; }
+
+/* ---------- footer ---------- */
+footer { border-top: 1.5px solid var(--ink); padding: 40px 0 64px; margin-top: 60px; background: var(--card); }
 .foot { display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; }
-.foot p { color: var(--text-faint); font-size: 14px; }
-.foot-links { display: flex; gap: 22px; font-size: 14px; }
-.foot-links a { color: var(--text-muted); }
-.foot-links a:hover { color: var(--accent); }
+.foot p { color: var(--ink-soft); font-size: 16px; }
+.foot-links { display: flex; gap: 24px; font-family: var(--mono); font-size: 13px; }
+.foot-links a { text-decoration: none; color: var(--ink-soft); }
+.foot-links a:hover { color: var(--red); }
 
-@media (max-width: 860px) {
-  .pipeline { flex-direction: column; }
-  .pipe-arrow { transform: rotate(90deg); justify-content: center; padding: 6px 0; }
+@media (max-width: 900px) {
+  .demo-grid { grid-template-columns: 1fr; }
+  .pipeline { grid-template-columns: 1fr 1fr; }
   .stats { grid-template-columns: 1fr 1fr; }
+  .firmware-grid { grid-template-columns: 1fr; }
+  .margin-note { display: none; }
   .nav-links { display: none; }
-  section { padding: 54px 0; }
-  .hero { padding: 60px 0 44px; }
+  section { padding: 50px 0; }
+  .hero { padding: 52px 0 36px; }
+  table { font-size: 11px; }
+  th, td { padding: 7px 6px; }
 }
 </style>
 </head>
@@ -146,41 +227,47 @@ footer { border-top: 1px solid var(--divider); padding: 44px 0 60px; margin-top:
 <header>
   <div class="wrap">
     <nav>
-      <div class="logo">
-        <svg width="26" height="26" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="none" stroke="#5fdca0" stroke-width="2"/><circle cx="16" cy="16" r="4" fill="#5fdca0"/><ellipse cx="16" cy="16" rx="11" ry="4.5" fill="none" stroke="#5fdca0" stroke-width="2" transform="rotate(-24 16 16)"/></svg>
-        PocketQ
-      </div>
+      <div class="logo"><span>Pocket<em>Q</em></span><span class="vol">LAB NOTEBOOK — NO. 04</span></div>
       <div class="nav-links">
-        <a href="#demo">Demo</a>
-        <a href="#how">How it works</a>
-        <a href="#results">Results</a>
-        <a href="https://github.com/swejorblachowski/pocketq">Code</a>
+        <a href="#demo">experiment</a>
+        <a href="#how">method</a>
+        <a href="#firmware">firmware</a>
+        <a href="#bench">bench</a>
+        <a href="https://github.com/swejorblachowski/pocketq">code</a>
       </div>
     </nav>
   </div>
 </header>
 
 <main class="wrap">
+
   <div class="hero">
-    <div class="kicker">Live quantum ML demo</div>
-    <h1>A quantum classifier that fits in your <em>pocket</em>.</h1>
-    <p class="lede">This page IS the product. The 2-qubit variational quantum model was trained in Python, and its entire state — 8 numbers — now runs in your browser. Drag the sliders or click the map and watch the quantum circuit respond in real time.</p>
-    <div class="hero-badges">
+    <div class="kicker">Live quantum ML demo · PennApps</div>
+    <h1>a quantum classifier that fits in your <span class="hl">pocket<svg viewBox="0 0 100 30" preserveAspectRatio="none"><path d="M2 22 Q 20 14 38 18 T 74 16 T 98 19" fill="none" stroke="#f9f26b" stroke-width="9" stroke-linecap="round" opacity="0.85"/><path d="M4 15 Q 24 8 44 12 T 82 9 T 96 12" fill="none" stroke="#f9f26b" stroke-width="7" stroke-linecap="round" opacity="0.6"/></svg></span>.</h1>
+    <p class="lede">This page IS the product. The 2-qubit variational quantum model was trained in Python, and its entire state — 8 numbers — now runs in your browser, with a C port that runs on a microcontroller. Drag the sliders or click the map and watch the circuit respond.</p>
+    <div class="margin-note">the whole trained model is 8 numbers. eight!! ↓</div>
+    <div class="badges">
       <span class="badge"><b>8</b> trainable parameters</span>
       <span class="badge"><b>100%</b> test accuracy</span>
-      <span class="badge">model file <b>< 1 KB</b></span>
-      <span class="badge"><b>int8</b> quantized copy included</span>
+      <span class="badge">model file <b>389 B</b></span>
+      <span class="badge"><b>int8</b> quantized copy</span>
+      <span class="badge">runs in <b>C</b> firmware</span>
     </div>
+    <div class="marquee"><span>2 qubits &nbsp;·&nbsp; 8 parameters &nbsp;·&nbsp; parameter-shift rule &nbsp;·&nbsp; int8 quantization &nbsp;·&nbsp; 389-byte model &nbsp;·&nbsp; ~40 µs per prediction &nbsp;·&nbsp; 8 bytes of flash for the int8 weights &nbsp;·&nbsp; zero dependencies &nbsp;·&nbsp; 2 qubits &nbsp;·&nbsp; 8 parameters &nbsp;·&nbsp; parameter-shift rule &nbsp;·&nbsp; int8 quantization &nbsp;·&nbsp; 389-byte model &nbsp;·&nbsp; ~40 µs per prediction &nbsp;·&nbsp; 8 bytes of flash for the int8 weights &nbsp;·&nbsp; zero dependencies &nbsp;·&nbsp; </span></div>
+  </div>
 
-    <div class="demo" id="demo">
-      <div class="demo-head">
-        <h2><span class="dot"></span>Classify an iris flower</h2>
+  <section id="demo" style="padding-top: 30px;">
+    <div class="sec-head"><span class="sec-num">experiment 01</span><h2>classify an iris flower</h2></div>
+    <div class="notebook">
+      <div class="exp-label">
+        <h3>the quantum decision boundary</h3>
+        <span class="hand">drag the sliders, or click anywhere on the map</span>
         <label class="toggle"><input type="checkbox" id="int8toggle"> use int8 quantized weights</label>
       </div>
       <div class="demo-grid">
         <div class="map-box">
           <canvas id="map" width="640" height="440"></canvas>
-          <p class="map-caption">quantum decision map: green = setosa, amber = versicolor. brightness = confidence (|⟨Z⟩|). click anywhere to drop a flower.</p>
+          <p class="map-caption">quantum decision map — green = setosa, amber = versicolor, brightness = confidence (|⟨Z⟩|). the whole thing is the JS port of the simulator, running per pixel.</p>
         </div>
         <div class="controls">
           <div class="ctl">
@@ -206,44 +293,80 @@ footer { border-top: 1px solid var(--divider); padding: 44px 0 60px; margin-top:
         </div>
       </div>
     </div>
-  </div>
+  </section>
 
   <section id="how">
-    <div class="sec-head"><span class="sec-num">01</span><h2>How a prediction works</h2></div>
+    <div class="sec-head"><span class="sec-num">method</span><h2>how a prediction works</h2></div>
     <div class="pipeline">
-      <div class="pipe-step">
-        <div class="tag">Step 1 · Encode</div>
-        <h3>Features become angles</h3>
+      <div class="card-note">
+        <div class="tag">step 1 · encode</div>
+        <h3>features become angles</h3>
         <p>Each input feature rotates a qubit: RY(x · scale). Data literally rotates qubits.</p>
       </div>
-      <div class="pipe-arrow"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
-      <div class="pipe-step">
-        <div class="tag">Step 2 · Entangle</div>
-        <h3>Trainable layers + CNOT</h3>
+      <div class="card-note">
+        <div class="tag">step 2 · entangle</div>
+        <h3>trainable layers + CNOT</h3>
         <p>Trainable RY/RX rotations, then a CNOT ties the qubits together so the model can't split into two independent halves.</p>
       </div>
-      <div class="pipe-arrow"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
-      <div class="pipe-step">
-        <div class="tag">Step 3 · Read out</div>
-        <h3>Measure ⟨Z⟩</h3>
+      <div class="card-note">
+        <div class="tag">step 3 · read out</div>
+        <h3>measure ⟨Z⟩</h3>
         <p>The expectation value of qubit 0 lands in [−1, +1] — that's the prediction.</p>
       </div>
-      <div class="pipe-arrow"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
-      <div class="pipe-step">
-        <div class="tag">Training</div>
-        <h3>Parameter-shift rule</h3>
+      <div class="card-note">
+        <div class="tag">training</div>
+        <h3>parameter-shift rule</h3>
         <p>No backprop. Nudge each angle ±90°, watch the loss move, step downhill — the exact same rule works on real quantum hardware.</p>
       </div>
     </div>
   </section>
 
+  <section id="firmware">
+    <div class="sec-head"><span class="sec-num">experiment 02</span><h2>the C port</h2></div>
+    <div class="firmware-grid">
+      <div>
+        <p class="firmware-note">The edge-AI endgame: <b>export_c.py</b> turns the trained model into a C header, and <b>firmware/main.c</b> is the whole simulator ported to plain C — no Python, no NumPy, just math.h. Same 8 weights, same predictions, six decimal places of agreement with the Python version. It compiles clean with <b>-Wall</b>.</p>
+        <div class="hand-list">make && ./pocketq &nbsp;← that's the whole install</div>
+        <div class="hand-list">the int8 model costs 8 bytes of flash. eight!</div>
+      </div>
+      <div class="term">
+<span class="dim">$</span> cd firmware && make<br>
+<span class="ok">PocketQ firmware (int8 weights)</span><br>
+flower (len, wid) &nbsp;class &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;Z0&gt;<br>
+(1.4, 0.2) cm &nbsp;setosa &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0.870986<br>
+(4.5, 1.5) cm &nbsp;versicolor &nbsp;-0.859037<br>
+(5.1, 1.8) cm &nbsp;versicolor &nbsp;-0.790495<br>
+(1.0, 0.1) cm &nbsp;setosa &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0.922362<br>
+(6.0, 2.4) cm &nbsp;versicolor &nbsp;-0.310144<br>
+(3.0, 1.0) cm &nbsp;versicolor &nbsp;-0.081639<br>
+<span class="dim"># matches the Python sim to ~1e-6</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="bench">
+    <div class="sec-head"><span class="sec-num">experiment 03</span><h2>quantum vs classical</h2></div>
+    <p style="font-size: 19px; color: var(--ink-soft); max-width: 56ch; margin-bottom: 28px;">Same task, same test set, same laptop. For edge AI the interesting numbers aren't just accuracy — they're model size and inference speed. Full benchmark in <span class="mono" style="font-size: 0.82em;">bench.py</span>.</p>
+    <div class="notebook" style="transform: rotate(0.3deg); padding: 18px 26px;">
+      <table>
+        <thead><tr><th>model</th><th>accuracy</th><th>size</th><th>µs / sample</th></tr></thead>
+        <tbody>
+          <tr><td>quantum (this repo)</td><td class="win">100%</td><td class="win">389 B</td><td class="win">41</td></tr>
+          <tr><td>logistic regression</td><td>100%</td><td>682 B</td><td>102</td></tr>
+          <tr><td>tiny MLP (4 hidden)</td><td>100%</td><td>29 KB</td><td>109</td></tr>
+        </tbody>
+      </table>
+      <p class="bench-note">the MLP is only 37 weights but pickles to 29 KB. framework overhead, not math.</p>
+    </div>
+  </section>
+
   <section id="results">
-    <div class="sec-head"><span class="sec-num">02</span><h2>Results</h2></div>
+    <div class="sec-head"><span class="sec-num">results</span><h2>the numbers</h2></div>
     <div class="stats">
-      <div class="stat"><div class="v">100%</div><div class="l">test accuracy on unseen iris flowers (20 held out)</div></div>
-      <div class="stat"><div class="v">2.9 s</div><div class="l">total training time on a laptop CPU</div></div>
-      <div class="stat"><div class="v">389 B</div><div class="l">the entire trained model — 8 floats plus an int8 copy</div></div>
-      <div class="stat"><div class="v">0 loss</div><div class="l">accuracy drop after 8-bit quantization of the weights</div></div>
+      <div class="stat"><div class="v">100<small>%</small></div><div class="l">test accuracy on 20 unseen iris flowers</div><span class="hand">not bad for 8 numbers</span></div>
+      <div class="stat"><div class="v">2.9<small>s</small></div><div class="l">total training time on a laptop CPU</div></div>
+      <div class="stat"><div class="v">389<small>B</small></div><div class="l">the entire trained model, float + int8</div></div>
+      <div class="stat"><div class="v">0</div><div class="l">accuracy lost to 8-bit quantization</div><span class="hand">the int8 copy is the one that ships</span></div>
     </div>
   </section>
 </main>
@@ -251,7 +374,7 @@ footer { border-top: 1px solid var(--divider); padding: 44px 0 60px; margin-top:
 <footer>
   <div class="wrap">
     <div class="foot">
-      <p>Built by Tex · pure Python + NumPy, nothing else</p>
+      <p>built by Tex · pure Python + NumPy, and a C port, nothing else</p>
       <div class="foot-links">
         <a href="https://github.com/swejorblachowski/pocketq">GitHub repo</a>
         <a href="https://github.com/swejorblachowski/pocketq/blob/main/README.md">README</a>
@@ -290,8 +413,8 @@ footer { border-top: 1px solid var(--divider); padding: 44px 0 60px; margin-top:
         const pos = r.z > 0;
         const conf = Math.min(Math.abs(r.z), 1);
         ctx.fillStyle = pos
-          ? `rgba(95,220,160,${0.10 + conf * 0.55})`
-          : `rgba(232,180,92,${0.10 + conf * 0.55})`;
+          ? `rgba(46,125,79,${0.10 + conf * 0.5})`
+          : `rgba(168,110,15,${0.10 + conf * 0.5})`;
         ctx.fillRect(px, py, step, step);
       }
     }
@@ -312,16 +435,17 @@ footer { border-top: 1px solid var(--divider); padding: 44px 0 60px; margin-top:
     const [fx, fy] = toPixels(flowerX, flowerY);
     ctx.beginPath();
     ctx.arc(fx, fy, 9, 0, Math.PI * 2);
-    ctx.fillStyle = '#0c1310';
+    ctx.fillStyle = '#faf7ec';
     ctx.fill();
     ctx.lineWidth = 2.5;
-    ctx.strokeStyle = '#e6efe9';
+    ctx.strokeStyle = '#262218';
     ctx.stroke();
-    ctx.beginPath(); ctx.arc(fx, fy, 2.5, 0, Math.PI * 2); ctx.fillStyle = '#e6efe9'; ctx.fill();
+    ctx.beginPath(); ctx.arc(fx, fy, 2.5, 0, Math.PI * 2); ctx.fillStyle = '#262218'; ctx.fill();
 
     // readout
-    document.getElementById('predName').textContent = r.z > 0 ? 'setosa' : 'versicolor';
-    document.getElementById('predName').style.color = r.z > 0 ? 'var(--accent)' : 'var(--amber)';
+    const nameEl = document.getElementById('predName');
+    nameEl.textContent = r.z > 0 ? 'setosa' : 'versicolor';
+    nameEl.style.color = r.z > 0 ? 'var(--green)' : 'var(--amber)';
     const fill = document.getElementById('zfill');
     if (r.z >= 0) { fill.style.left = '50%'; fill.style.width = (r.z / 2 * 100) + '%'; }
     else { fill.style.left = (50 + r.z / 2 * 100) + '%'; fill.style.width = (-r.z / 2 * 100) + '%'; }

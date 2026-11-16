@@ -84,6 +84,37 @@ Predict a new flower (cm):
   quantum output <Z0> = -0.859  ->  predicted: versicolor (-1)
 ```
 
+## the C port (edge AI endgame)
+
+`export_c.py` turns the trained model into a C header, and
+`firmware/main.c` is the whole simulator ported to plain C. No Python,
+no NumPy, no runtime - just math.h and 8 weights. It prints predictions
+for a few test flowers so you can diff against the Python version
+(they match to about 1e-6). The int8 weights cost 8 bytes of flash.
+
+```bash
+python export_c.py     # writes firmware/model.h from model.json
+cd firmware
+make && ./pocketq      # float32 weights
+./pocketq int8         # same thing with the 8-byte int8 model
+```
+
+Output:
+
+```
+PocketQ firmware (int8 weights)
+flower (len, wid)  class          <Z0>
+(1.4, 0.2) cm     setosa      0.870986
+(4.5, 1.5) cm     versicolor -0.859037
+...
+```
+
+There's also `bench.py`, which runs the quantum model against logistic
+regression and a tiny MLP on the same data and compares accuracy,
+model size, and inference speed. Spoiler: the quantum model is the
+smallest file AND the fastest per prediction. The MLP is only 37 weights
+but pickles to 29 KB, which is framework overhead, not math.
+
 ## reading the code
 
 Read it in this order. Each file is short and commented:
@@ -94,12 +125,14 @@ Read it in this order. Each file is short and commented:
   parameter-shift rule, and int8 quantization.
 - `train.py` - loading the CSV, the training loop, saving an 8 number model.
 - `demo.py` - edge inference. Float vs int8, timing, live predictions.
+- `export_c.py` - the bridge from Python training to C firmware.
+- `firmware/main.c` - the simulator in C, for microcontrollers.
 
 ## what I'd do next
 
 - add a 3rd qubit and try 3 classes / 3 features
 - try the SPSA optimizer (it's what people use for real hardware)
-- port inference to C or MicroPython and run it on a $5 microcontroller
+- get this onto an actual ESP32 / RP2040 with a sensor, not just gcc
 - train on phone accelerometer data instead of iris
 
 ## things I know are wrong with it
@@ -118,6 +151,9 @@ qsim.py            the simulator (gates, statevector, measurement)
 model.py           the classifier + parameter-shift training
 train.py           trains on iris_binary.csv, saves model.json
 demo.py            edge inference demo (float vs int8, timing, live)
+bench.py           quantum vs logistic regression vs a tiny MLP
+export_c.py        exports model.json as a C header
+firmware/          the C port (main.c, model.h, Makefile)
 iris_binary.csv    the dataset (100 flowers, 2 species, 2 features)
 model.json         the trained model (made by train.py)
 ```
