@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PocketQ — a quantum classifier that fits in your pocket</title>
+<meta name="description" content="A variational quantum classifier running live in your browser. 8 trainable parameters, int8 quantized, no frameworks.">
+<meta property="og:title" content="PocketQ — a quantum classifier that fits in your pocket">
+<meta property="og:description" content="The trained quantum model runs live on this page. 8 parameters, ~40 µs per prediction.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230e1512'/><circle cx='16' cy='16' r='4' fill='%235fdca0'/><ellipse cx='16' cy='16' rx='11' ry='4.5' fill='none' stroke='%235fdca0' stroke-width='2' transform='rotate(-24 16 16)'/></svg>">
+<script src="pocketq-model.js"></script>
+<style>
+:root {
+  --bg: #0c1310;
+  --surface: #101915;
+  --surface-2: #14201b;
+  --border: #1d3329;
+  --divider: #173026;
+  --text: #e6efe9;
+  --text-muted: #93a89c;
+  --text-faint: #5f7568;
+  --accent: #5fdca0;
+  --accent-dim: #2e7d5b;
+  --amber: #e8b45c;
+  --font-body: 'Inter', 'Helvetica Neue', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --radius: 12px;
+  --content: 1080px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  line-height: 1.65;
+  font-size: 16px;
+  min-height: 100dvh;
+}
+a { color: var(--accent); text-decoration: none; transition: color var(--ease); }
+a:hover { color: #8ff0c0; }
+img, svg, canvas { display: block; max-width: 100%; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.15; }
+p { text-wrap: pretty; }
+
+.backdrop {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(95,220,160,0.07), transparent 60%),
+    repeating-linear-gradient(0deg, transparent, transparent 47px, rgba(95,220,160,0.028) 47px, rgba(95,220,160,0.028) 48px),
+    repeating-linear-gradient(90deg, transparent, transparent 47px, rgba(95,220,160,0.028) 47px, rgba(95,220,160,0.028) 48px);
+}
+.wrap { max-width: var(--content); margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+header { border-bottom: 1px solid var(--divider); position: sticky; top: 0; z-index: 50; background: color-mix(in oklab, var(--bg) 88%, transparent); backdrop-filter: blur(12px); }
+nav { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; }
+.logo { font-family: var(--font-mono); font-weight: 700; font-size: 17px; color: var(--text); display: flex; align-items: center; gap: 10px; }
+.nav-links { display: flex; gap: 26px; font-size: 14px; }
+.nav-links a { color: var(--text-muted); font-weight: 500; }
+.nav-links a:hover { color: var(--accent); }
+
+.hero { padding: 88px 0 60px; }
+.kicker { font-family: var(--font-mono); font-size: 13px; color: var(--accent); letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 22px; }
+.hero h1 { font-size: clamp(2.6rem, 1.6rem + 4.5vw, 4.6rem); font-weight: 700; letter-spacing: -0.02em; max-width: 15ch; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero p.lede { font-size: clamp(1.05rem, 0.95rem + 0.4vw, 1.25rem); color: var(--text-muted); max-width: 58ch; margin-top: 26px; }
+.hero-badges { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
+.badge { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-muted); border: 1px solid var(--border); background: var(--surface); padding: 7px 14px; border-radius: 999px; }
+.badge b { color: var(--text); font-weight: 600; }
+
+/* ---------- the demo ---------- */
+.demo { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px; margin-top: 56px; }
+.demo-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 22px; }
+.demo-head h2 { font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+.demo-head h2 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+.toggle { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text-muted); cursor: pointer; user-select: none; }
+.toggle input { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
+.demo-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 26px; }
+@media (max-width: 900px) { .demo-grid { grid-template-columns: 1fr; } }
+
+.map-box { position: relative; }
+#map { width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--divider); cursor: crosshair; touch-action: manipulation; }
+.map-caption { font-size: 12.5px; color: var(--text-faint); margin-top: 10px; font-family: var(--font-mono); }
+
+.controls { display: flex; flex-direction: column; gap: 20px; }
+.ctl label { display: flex; justify-content: space-between; font-size: 14px; color: var(--text-muted); margin-bottom: 8px; }
+.ctl label output { font-family: var(--font-mono); color: var(--text); font-weight: 500; }
+.ctl input[type=range] { width: 100%; accent-color: var(--accent); height: 22px; cursor: pointer; }
+.readout { background: var(--bg); border: 1px solid var(--divider); border-radius: 10px; padding: 18px; }
+.readout .pred { font-family: var(--font-mono); font-size: 15px; display: flex; justify-content: space-between; margin-bottom: 12px; }
+.readout .pred .name { color: var(--accent); font-weight: 700; }
+.zmeter { height: 10px; background: var(--surface-2); border-radius: 999px; position: relative; overflow: hidden; margin-bottom: 6px; }
+.zmeter .mid { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--border); }
+.zmeter .fill { position: absolute; top: 0; bottom: 0; background: var(--accent); border-radius: 999px; transition: all 0.25s var(--ease); }
+.zlabel { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11.5px; color: var(--text-faint); margin-bottom: 14px; }
+.state-bars { display: flex; flex-direction: column; gap: 7px; }
+.sbar { display: grid; grid-template-columns: 38px 1fr 46px; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+.sbar .track { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.sbar .fill { height: 100%; background: var(--accent-dim); border-radius: 999px; transition: width 0.25s var(--ease); }
+.sbar .val { text-align: right; color: var(--text-faint); }
+.params { font-family: var(--font-mono); font-size: 12px; color: var(--text-faint); line-height: 1.7; }
+.params b { color: var(--amber); font-weight: 500; }
+
+section { padding: 72px 0; }
+.sec-head { display: flex; align-items: baseline; gap: 18px; margin-bottom: 40px; }
+.sec-num { font-family: var(--font-mono); color: var(--accent); font-size: 14px; }
+h2 { font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2.1rem); font-weight: 700; letter-spacing: -0.01em; }
+
+.pipeline { display: flex; align-items: stretch; gap: 0; margin-top: 10px; }
+.pipe-step { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 20px; }
+.pipe-step .tag { font-family: var(--font-mono); font-size: 11px; color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px; }
+.pipe-step h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+.pipe-step p { font-size: 14px; color: var(--text-muted); }
+.pipe-arrow { display: flex; align-items: center; padding: 0 8px; color: var(--accent-dim); flex: none; }
+
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 26px 24px; }
+.stat .v { font-family: var(--font-mono); font-size: clamp(1.7rem, 1.2rem + 1.5vw, 2.4rem); font-weight: 700; color: var(--accent); letter-spacing: -0.02em; }
+.stat .l { font-size: 13.5px; color: var(--text-muted); margin-top: 8px; line-height: 1.45; }
+
+footer { border-top: 1px solid var(--divider); padding: 44px 0 60px; margin-top: 40px; }
+.foot { display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; }
+.foot p { color: var(--text-faint); font-size: 14px; }
+.foot-links { display: flex; gap: 22px; font-size: 14px; }
+.foot-links a { color: var(--text-muted); }
+.foot-links a:hover { color: var(--accent); }
+
+@media (max-width: 860px) {
+  .pipeline { flex-direction: column; }
+  .pipe-arrow { transform: rotate(90deg); justify-content: center; padding: 6px 0; }
+  .stats { grid-template-columns: 1fr 1fr; }
+  .nav-links { display: none; }
+  section { padding: 54px 0; }
+  .hero { padding: 60px 0 44px; }
+}
+</style>
+</head>
+<body>
+<div class="backdrop"></div>
+
+<header>
+  <div class="wrap">
+    <nav>
+      <div class="logo">
+        <svg width="26" height="26" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="none" stroke="#5fdca0" stroke-width="2"/><circle cx="16" cy="16" r="4" fill="#5fdca0"/><ellipse cx="16" cy="16" rx="11" ry="4.5" fill="none" stroke="#5fdca0" stroke-width="2" transform="rotate(-24 16 16)"/></svg>
+        PocketQ
+      </div>
+      <div class="nav-links">
+        <a href="#demo">Demo</a>
+        <a href="#how">How it works</a>
+        <a href="#results">Results</a>
+        <a href="https://github.com/swejorblachowski/pocketq">Code</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="hero">
+    <div class="kicker">Live quantum ML demo</div>
+    <h1>A quantum classifier that fits in your <em>pocket</em>.</h1>
+    <p class="lede">This page IS the product. The 2-qubit variational quantum model was trained in Python, and its entire state — 8 numbers — now runs in your browser. Drag the sliders or click the map and watch the quantum circuit respond in real time.</p>
+    <div class="hero-badges">
+      <span class="badge"><b>8</b> trainable parameters</span>
+      <span class="badge"><b>100%</b> test accuracy</span>
+      <span class="badge">model file <b>< 1 KB</b></span>
+      <span class="badge"><b>int8</b> quantized copy included</span>
+    </div>
+
+    <div class="demo" id="demo">
+      <div class="demo-head">
+        <h2><span class="dot"></span>Classify an iris flower</h2>
+        <label class="toggle"><input type="checkbox" id="int8toggle"> use int8 quantized weights</label>
+      </div>
+      <div class="demo-grid">
+        <div class="map-box">
+          <canvas id="map" width="640" height="440"></canvas>
+          <p class="map-caption">quantum decision map: green = setosa, amber = versicolor. brightness = confidence (|⟨Z⟩|). click anywhere to drop a flower.</p>
+        </div>
+        <div class="controls">
+          <div class="ctl">
+            <label>petal length <output id="lenOut">4.5 cm</output></label>
+            <input type="range" id="len" min="0.5" max="7" step="0.05" value="4.5">
+          </div>
+          <div class="ctl">
+            <label>petal width <output id="widOut">1.5 cm</output></label>
+            <input type="range" id="wid" min="0" max="2.6" step="0.05" value="1.5">
+          </div>
+          <div class="readout">
+            <div class="pred"><span>prediction</span><span class="name" id="predName">versicolor</span></div>
+            <div class="zmeter"><div class="mid"></div><div class="fill" id="zfill"></div></div>
+            <div class="zlabel"><span>−1</span><span>⟨Z₀⟩ quantum output</span><span>+1</span></div>
+            <div class="state-bars">
+              <div class="sbar"><span>|00⟩</span><div class="track"><div class="fill" id="p00"></div></div><span class="val" id="v00">0%</span></div>
+              <div class="sbar"><span>|01⟩</span><div class="track"><div class="fill" id="p01"></div></div><span class="val" id="v01">0%</span></div>
+              <div class="sbar"><span>|10⟩</span><div class="track"><div class="fill" id="p10"></div></div><span class="val" id="v10">0%</span></div>
+              <div class="sbar"><span>|11⟩</span><div class="track"><div class="fill" id="p11"></div></div><span class="val" id="v11">0%</span></div>
+            </div>
+          </div>
+          <p class="params">the entire trained model:<br><b id="paramList"></b></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section id="how">
+    <div class="sec-head"><span class="sec-num">01</span><h2>How a prediction works</h2></div>
+    <div class="pipeline">
+      <div class="pipe-step">
+        <div class="tag">Step 1 · Encode</div>
+        <h3>Features become angles</h3>
+        <p>Each input feature rotates a qubit: RY(x · scale). Data literally rotates qubits.</p>
+      </div>
+      <div class="pipe-arrow"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
+      <div class="pipe-step">
+        <div class="tag">Step 2 · Entangle</div>
+        <h3>Trainable layers + CNOT</h3>
+        <p>Trainable RY/RX rotations, then a CNOT ties the qubits together so the model can't split into two independent halves.</p>
+      </div>
+      <div class="pipe-arrow"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
+      <div class="pipe-step">
+        <div class="tag">Step 3 · Read out</div>
+        <h3>Measure ⟨Z⟩</h3>
+        <p>The expectation value of qubit 0 lands in [−1, +1] — that's the prediction.</p>
+      </div>
+      <div class="pipe-arrow"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
+      <div class="pipe-step">
+        <div class="tag">Training</div>
+        <h3>Parameter-shift rule</h3>
+        <p>No backprop. Nudge each angle ±90°, watch the loss move, step downhill — the exact same rule works on real quantum hardware.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="results">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Results</h2></div>
+    <div class="stats">
+      <div class="stat"><div class="v">100%</div><div class="l">test accuracy on unseen iris flowers (20 held out)</div></div>
+      <div class="stat"><div class="v">2.9 s</div><div class="l">total training time on a laptop CPU</div></div>
+      <div class="stat"><div class="v">389 B</div><div class="l">the entire trained model — 8 floats plus an int8 copy</div></div>
+      <div class="stat"><div class="v">0 loss</div><div class="l">accuracy drop after 8-bit quantization of the weights</div></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <p>Built by Tex · pure Python + NumPy, nothing else</p>
+      <div class="foot-links">
+        <a href="https://github.com/swejorblachowski/pocketq">GitHub repo</a>
+        <a href="https://github.com/swejorblachowski/pocketq/blob/main/README.md">README</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  // ---- model params display
+  const fmt = x => (x >= 0 ? ' ' : '') + x.toFixed(2);
+  document.getElementById('paramList').textContent =
+    POCKETQ_MODEL.params.map(fmt).join('  ');
+
+  // ---- decision map
+  const canvas = document.getElementById('map');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const X_MIN = 0.5, X_MAX = 7, Y_MIN = 0, Y_MAX = 2.6;
+  const useInt8 = () => document.getElementById('int8toggle').checked;
+
+  function toData(px, py) {
+    return [X_MIN + (px / W) * (X_MAX - X_MIN), Y_MAX - (py / H) * (Y_MAX - Y_MIN)];
+  }
+  function toPixels(x, y) {
+    return [(x - X_MIN) / (X_MAX - X_MIN) * W, (Y_MAX - y) / (Y_MAX - Y_MIN) * H];
+  }
+
+  function drawMap() {
+    const step = 4;
+    for (let px = 0; px < W; px += step) {
+      for (let py = 0; py < H; py += step) {
+        const [x0, x1] = toData(px, py);
+        const r = predict([x0, x1], useInt8());
+        const pos = r.z > 0;
+        const conf = Math.min(Math.abs(r.z), 1);
+        ctx.fillStyle = pos
+          ? `rgba(95,220,160,${0.10 + conf * 0.55})`
+          : `rgba(232,180,92,${0.10 + conf * 0.55})`;
+        ctx.fillRect(px, py, step, step);
+      }
+    }
+  }
+
+  // ---- flower marker + readout
+  const lenEl = document.getElementById('len'), widEl = document.getElementById('wid');
+  let flowerX = 4.5, flowerY = 1.5;
+
+  function update() {
+    flowerX = parseFloat(lenEl.value); flowerY = parseFloat(widEl.value);
+    document.getElementById('lenOut').textContent = flowerX.toFixed(2) + ' cm';
+    document.getElementById('widOut').textContent = flowerY.toFixed(2) + ' cm';
+    const r = predict([flowerX, flowerY], useInt8());
+
+    // marker on top of the map
+    drawMap();
+    const [fx, fy] = toPixels(flowerX, flowerY);
+    ctx.beginPath();
+    ctx.arc(fx, fy, 9, 0, Math.PI * 2);
+    ctx.fillStyle = '#0c1310';
+    ctx.fill();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#e6efe9';
+    ctx.stroke();
+    ctx.beginPath(); ctx.arc(fx, fy, 2.5, 0, Math.PI * 2); ctx.fillStyle = '#e6efe9'; ctx.fill();
+
+    // readout
+    document.getElementById('predName').textContent = r.z > 0 ? 'setosa' : 'versicolor';
+    document.getElementById('predName').style.color = r.z > 0 ? 'var(--accent)' : 'var(--amber)';
+    const fill = document.getElementById('zfill');
+    if (r.z >= 0) { fill.style.left = '50%'; fill.style.width = (r.z / 2 * 100) + '%'; }
+    else { fill.style.left = (50 + r.z / 2 * 100) + '%'; fill.style.width = (-r.z / 2 * 100) + '%'; }
+    const probs = r.amps.map(a => a[0] * a[0] + a[1] * a[1]);
+    ['00', '01', '10', '11'].forEach((k, i) => {
+      const pct = probs[i] * 100;
+      document.getElementById('p' + k).style.width = Math.max(pct, 1) + '%';
+      document.getElementById('v' + k).textContent = pct.toFixed(0) + '%';
+    });
+  }
+
+  lenEl.addEventListener('input', update);
+  widEl.addEventListener('input', update);
+  document.getElementById('int8toggle').addEventListener('change', update);
+
+  canvas.addEventListener('click', e => {
+    const rect = canvas.getBoundingClientRect();
+    const sx = (e.clientX - rect.left) / rect.width * W;
+    const sy = (e.clientY - rect.top) / rect.height * H;
+    const [x0, x1] = toData(sx, sy);
+    lenEl.value = x0; widEl.value = x1;
+    update();
+  });
+
+  drawMap();
+  update();
+})();
+</script>
+</body>
+</html>
